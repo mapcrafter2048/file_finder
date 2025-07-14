@@ -2,11 +2,11 @@
 name = "file_finder"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Aadish Jain <aadish.jinesh.jain@gmail.com>"]
 description = "A powerful, colorful CLI tool for searching files and text patterns with beautiful output"
 readme = "README.md"
-homepage = "https://github.com/yourusername/file_finder"
-repository = "https://github.com/yourusername/file_finder"
+homepage = "https://github.com/aadishjain/file_finder"
+repository = "https://github.com/aadishjain/file_finder"
 license = "MIT"
 keywords = ["cli", "search", "grep", "find", "windows"]
 categories = ["command-line-utilities", "text-processing"]
