@@ -1,6 +1,13 @@
 # File Finder & Grep Tool 🚀
 
+[![CI](https://github.com/mapcrafter2048/file_finder/workflows/CI/badge.svg)](https://github.com/mapcrafter2048/file_finder/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/mapcrafter2048/file_finder)
+
 A powerful, colorful, and aesthetically pleasing CLI tool for searching files and text patterns in directories, built with Rust.
+
+![Demo](https://img.shields.io/badge/CLI-Colorful%20%26%20Beautiful-brightgreen.svg)
 
 ## Features
 
