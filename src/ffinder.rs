@@ -3,6 +3,9 @@ use console::Term;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select};
 use std::process::Command;
 
+// Global variable to store current session exclude list
+static mut CURRENT_EXCLUDES: Option<Vec<String>> = None;
+
 fn main() {
     let term = Term::stdout();
     term.clear_screen().unwrap();
@@ -263,33 +266,59 @@ fn configure_excludes() {
     // Show ASCII art for exclude feature
     println!("{}", r#"
     ╔════════════════════════════════════════════════════════════╗
-    ║  Choose which directories to skip during searches       ║
-    ║  Simply select/deselect • Fast & Simple                ║
-    ║  More excludes = Faster searches                       ║
+    ║  Choose which directories to EXCLUDE during searches    ║
+    ║  All are selected by default • Deselect to search in   ║
+    ║  Fewer excludes = More thorough search                 ║
     ╚════════════════════════════════════════════════════════════╝
     "#.bright_cyan());
 
     // Get all common directories with descriptions
     let all_directories = get_all_common_directories();
     
-    println!("{}", "\nSelect directories to EXCLUDE from searches:".bright_yellow());
+    println!("{}", "\nDirectories to EXCLUDE from searches:".bright_yellow());
+    println!("{}", "   (All selected by default - DESELECT ones you want to search in)".bright_cyan());
     println!("{}", "   (Use SPACE to select/deselect, ENTER to confirm)".bright_cyan());
 
+    // All directories are selected by default
+    let defaults: Vec<bool> = vec![true; all_directories.len()];
+
     let selected = MultiSelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Choose directories to exclude")
+        .with_prompt("Choose directories to exclude (deselect to search in them)")
         .items(&all_directories[..])
+        .defaults(&defaults[..])  // All selected by default
         .interact()
         .unwrap();
 
-    if selected.is_empty() {
-        println!("{}", "\nNo directories will be excluded (searching all directories)".bright_green());
+    // Store the current exclude list for this session
+    let mut current_excludes = Vec::new();
+    for &index in &selected {
+        let dir_name = all_directories[index].split(" - ").next().unwrap();
+        current_excludes.push(dir_name.to_string());
+    }
+    
+    unsafe {
+        CURRENT_EXCLUDES = Some(current_excludes.clone());
+    }
+
+    if selected.len() == all_directories.len() {
+        println!("{}", "\nAll directories will be excluded (default behavior)".bright_red());
+    } else if selected.is_empty() {
+        println!("{}", "\nNo directories will be excluded (searching everywhere including node_modules, target, etc.)".bright_green());
     } else {
-        println!("{}", format!("\n{} directories will be excluded:", selected.len()).bright_red());
-        for &index in &selected {
-            let dir_name = all_directories[index].split(" - ").next().unwrap();
-            println!("   • {}", dir_name.bright_white());
+        let excluded_count = selected.len();
+        let included_count = all_directories.len() - excluded_count;
+        
+        println!("{}", format!("\n{} directories will be excluded", excluded_count).bright_red());
+        println!("{}", format!("{} directories will be SEARCHED (including):", included_count).bright_green());
+        
+        // Show which directories will be searched in
+        for (index, _dir) in all_directories.iter().enumerate() {
+            if !selected.contains(&index) {
+                let dir_name = all_directories[index].split(" - ").next().unwrap();
+                println!("   • {}", dir_name.bright_green());
+            }
         }
-        println!("{}", "\nThis will make your searches much faster!".bright_cyan());
+        println!("{}", "\nThis configuration is active for current session only!".bright_cyan());
     }
     
     println!("\nPress Enter to continue...");
@@ -344,6 +373,56 @@ fn get_all_common_directories() -> Vec<String> {
         ".npm - NPM cache".to_string(),
         ".cargo - Cargo registry cache".to_string(),
         ".rustup - Rustup toolchain".to_string(),
+    ]
+}
+
+fn get_default_exclude_directories() -> Vec<String> {
+    vec![
+        "node_modules".to_string(),
+        "target".to_string(),
+        "build".to_string(),
+        "_build".to_string(),
+        "dist".to_string(),
+        ".git".to_string(),
+        ".svn".to_string(),
+        "__pycache__".to_string(),
+        ".pytest_cache".to_string(),
+        "venv".to_string(),
+        ".venv".to_string(),
+        ".env".to_string(),
+        ".idea".to_string(),
+        ".vscode".to_string(),
+        "deps".to_string(),
+        "_deps".to_string(),
+        ".cache".to_string(),
+        "vendor".to_string(),
+        "coverage".to_string(),
+        "tmp".to_string(),
+        ".tmp".to_string(),
+        ".next".to_string(),
+        ".nuxt".to_string(),
+        ".output".to_string(),
+        "public".to_string(),
+        "static".to_string(),
+        "assets".to_string(),
+        ".DS_Store".to_string(),
+        "Thumbs.db".to_string(),
+        ".sass-cache".to_string(),
+        ".webpack".to_string(),
+        ".parcel-cache".to_string(),
+        "bower_components".to_string(),
+        "jspm_packages".to_string(),
+        ".nyc_output".to_string(),
+        "logs".to_string(),
+        "*.log".to_string(),
+        ".log".to_string(),
+        "temp".to_string(),
+        ".temp".to_string(),
+        ".yarn".to_string(),
+        "node".to_string(),
+        ".npm".to_string(),
+        ".cargo".to_string(),
+        ".rustup".to_string(),
     ]
 }
 
@@ -459,31 +538,21 @@ fn execute_grep_search(
     {
         let mut exclude_list = Vec::new();
         if exclude_common {
-            exclude_list.extend_from_slice(&[
-                "node_modules",
-                "target",
-                "build",
-                "_build",
-                "dist",
-                ".git",
-                ".svn",
-                "deps",
-                "_deps",
-                ".cache",
-                ".next",
-                ".nuxt",
-                "__pycache__",
-                ".venv",
-                "venv",
-                ".idea",
-                ".vscode",
-            ]);
+            // Use session-specific exclude list if configured, otherwise use default
+            unsafe {
+                if let Some(ref current_excludes) = CURRENT_EXCLUDES {
+                    exclude_list.extend_from_slice(current_excludes);
+                } else {
+                    // Default exclude list if not configured
+                    exclude_list.extend(get_default_exclude_directories());
+                }
+            }
         }
 
         if let Some(additional) = additional_excludes {
             if !additional.is_empty() {
                 for dir in additional.split(',') {
-                    exclude_list.push(dir.trim());
+                    exclude_list.push(dir.trim().to_string());
                 }
             }
         }
